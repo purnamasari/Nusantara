@@ -91,3 +91,6 @@ kbd { background: #efe8fb; border: 1px solid #d6cbea; border-bottom-width: 2px; 
   .destination { grid-template-columns: 1fr auto; }
   .destination button { grid-column: 1 / -1; }
 }
+/* Menus and pause own the screen; unexpired toasts reappear when they close. */
+.ui-root[data-screen='menu'] .toasts,
+.ui-root[data-screen='paused'] .toasts { display: none; }
