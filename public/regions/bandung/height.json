@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "regionId": "bandung",
+  "source": {
+    "kind": "synthetic",
+    "zoom": null,
+    "tiles": [],
+    "syntheticSeed": 20261004,
+    "note": "Synthetic stand-in terrain generated from the region config (plan §5.6). Not survey data."
+  },
+  "bounds": {
+    "south": -7.15,
+    "west": 107.4,
+    "north": -6.7,
+    "east": 107.85
+  },
+  "grid": {
+    "width": 256,
+    "height": 256,
+    "registration": "pixel-is-point",
+    "rowOrder": "north-to-south",
+    "colOrder": "west-to-east"
+  },
+  "encoding": {
+    "format": "uint8",
+    "minElevationM": 600.94,
+    "maxElevationM": 2569.43,
+    "decode": "min + v / 255 * (max - min)"
+  },
+  "resampling": {
+    "method": "none (generated directly on the grid)",
+    "sourceCrs": null,
+    "targetGrid": "plate-carree-normalised-to-bounds"
+  },
+  "file": {
+    "name": "height.u8.bin",
+    "bytes": 65536,
+    "sha256": "f88e2dbe4f06f0e254b698a9521a7de18825550595a0f20a705b07f31fa16cc1"
+  },
+  "realExtentM": {
+    "northSouth": 49766,
+    "eastWest": 49731,
+    "anisotropyPct": 0.07
+  },
+  "quantization": {
+    "stepM": 7.7196,
+    "maxErrGameM": 0.2029,
+    "rmsErrGameM": 0.0487,
+    "terraceCellsPct": 0
+  },
+  "bake": {
+    "toolVersion": 1,
+    "node": "v22.22.0",
+    "bakedAt": "2026-10-04T11:27:13.947Z"
+  }
+}
