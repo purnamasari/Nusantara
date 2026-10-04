@@ -58,10 +58,8 @@ describe('walking invariants (plan §16 M2)', () => {
         const s = g.surface.height(p.x, p.z);
         if (p.y < s - 1e-3) throw new Error(`below surface at run ${run} frame ${f}: ${p.y} < ${s}`);
         if (Math.abs(p.x) > world.bound + 1e-6 || Math.abs(p.z) > world.bound + 1e-6) throw new Error(`out of bounds at run ${run}`);
-        if (f % 5 === 0) {
-          updateCamera(cam, p, yaw, pitch, g.surface, dt);
-          if (cam.y < g.surface.height(cam.x, cam.z) + CAMERA.clearance - 1e-6) camViolations++;
-        }
+        updateCamera(cam, p, yaw, pitch, g.surface, dt);
+        if (cam.y < g.surface.height(cam.x, cam.z) + CAMERA.clearance - 1e-6) camViolations++;
       }
     }
     expect(camViolations).toBe(0);

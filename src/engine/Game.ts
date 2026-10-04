@@ -18,7 +18,7 @@ import { generateRegion } from '../terrain/generate.ts';
 import type { GeneratedRegion } from '../terrain/generate.ts';
 import type { HeightmapMetadata } from '../heightmap/metadata.ts';
 import { Input } from './input.ts';
-import { createPlayer, isTransition, NO_INPUT, stepPlayer } from './player/movement.ts';
+import { createPlayer, isTransition, NO_INPUT, stepPlayer, TUNING } from './player/movement.ts';
 import type { MovementWorld, PlayerState } from './player/movement.ts';
 import { Avatar } from './player/avatar.ts';
 import { clampPitch, createCameraState, updateCamera } from './camera/cameraRig.ts';
@@ -30,6 +30,8 @@ import { benchmarkPoses } from './poses.ts';
 import type { Pose } from './poses.ts';
 
 const MOUSE_SENSITIVITY = 0.0022;
+const MAX_FRAME_DT = 0.25;
+const MAX_SUBSTEPS = 5;
 export const INTERACT_RADIUS = 5;
 const TOAST_SECONDS = 4.5;
 const SAVE_INTERVAL = 10;
@@ -390,7 +392,7 @@ export class Game implements GameCommands {
   // ---------------------------------------------------------------- frame loop
 
   private frame(now: number): void {
-    const dt = Math.min(0.1, Math.max(0, (now - this.lastFrame) / 1000));
+    const dt = Math.min(MAX_FRAME_DT, Math.max(0, (now - this.lastFrame) / 1000));
     this.lastFrame = now;
     this.time += dt;
     const input = this.input;
@@ -428,7 +430,12 @@ export class Game implements GameCommands {
           }
         : { ...NO_INPUT, toggleMode: this.pendingToggle, yaw: this.look.yaw, pitch: this.look.pitch };
       this.pendingToggle = false;
-      stepPlayer(this.player, move, r.world, dt);
+      // Substep so slow frames (down to ~4 fps) still simulate in real time; edge-triggered
+      // inputs (jump, mode toggle) apply on the first substep only.
+      const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(dt / TUNING.maxDt)));
+      for (let i = 0; i < substeps; i++) {
+        stepPlayer(this.player, i === 0 ? move : { ...move, jump: false, toggleMode: false }, r.world, dt / substeps);
+      }
       if (prevMode !== this.player.mode && isTransition(this.player.mode)) this.sfx.whoosh(this.player.mode === 'takeoff');
       if (playing && input.wasPressed('KeyE')) this.interact();
 
@@ -690,6 +697,10 @@ export class Game implements GameCommands {
       },
       nextFrame: () => new Promise<void>((resolve) => this.frameWaiters.push(resolve)),
       saveNow: () => this.saveNow(),
+      setLook: (yaw: number, pitch: number) => {
+        this.look.yaw = wrapAngle(yaw);
+        this.look.pitch = pitch;
+      },
     };
   }
 }

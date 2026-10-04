@@ -1,12 +1,11 @@
 // CLI: node tools/check-budgets.ts [distDir]. Fails (exit 1) when any budget is exceeded.
 
-import { join } from 'node:path';
-import { dirname } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkBudgets } from './budgets.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const distDir = process.argv[2] ? join(process.cwd(), process.argv[2]) : join(ROOT, 'dist');
+const distDir = process.argv[2] ? resolve(process.argv[2]) : join(ROOT, 'dist');
 const result = checkBudgets(distDir, join(ROOT, 'public', 'regions'));
 
 for (const r of result.rows) {

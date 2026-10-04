@@ -26,8 +26,8 @@ export class Avatar {
       geometry: new SphereGeometry(1, 10, 4),
       color,
       position: [side * 1.5, 1.9, 0.2] as [number, number, number],
-      rotation: [0, side * 0.35, side * 0.12] as [number, number, number],
-      scale: [1.6, 0.06, 0.7] as [number, number, number],
+      rotation: [0, side * 0.3, side * 0.28] as [number, number, number],
+      scale: [1.6, 0.14, 0.75] as [number, number, number],
     });
     this.glider = new Mesh(
       mergeParts([
