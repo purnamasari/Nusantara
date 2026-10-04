@@ -94,3 +94,9 @@ kbd { background: #efe8fb; border: 1px solid #d6cbea; border-bottom-width: 2px; 
 /* Menus and pause own the screen; unexpired toasts reappear when they close. */
 .ui-root[data-screen='menu'] .toasts,
 .ui-root[data-screen='paused'] .toasts { display: none; }
+.sound { display: grid; gap: 6px; margin: 18px 0 0; font-size: 14px; }
+.sound-row { display: grid; grid-template-columns: 64px 1fr 32px; gap: 10px; align-items: center; text-align: left; }
+.sound-row span { color: var(--ink-soft); font-weight: 600; }
+.sound-row output { font-variant-numeric: tabular-nums; color: var(--ink-soft); text-align: right; }
+.sound-row input[type='range'] { width: 100%; accent-color: var(--accent); }
+.sound-row input[type='range']:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }

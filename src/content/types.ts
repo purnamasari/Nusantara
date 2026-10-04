@@ -95,6 +95,21 @@ export interface SyntheticDem {
   bumps: readonly { at: GeoPoint; radiusKm: number; heightM: number }[];
 }
 
+/** Procedural audio theme for a region (all sound is synthesised; no audio files). */
+export interface AudioTheme {
+  /** Human-readable description of the musical inspiration. */
+  style: string;
+  /** One octave of scale degrees, in cents above the tonic (first entry 0). */
+  scaleCents: readonly number[];
+  tonicHz: number;
+  tempoBpm: number;
+  /** Beats per cycle; a low gong marks the start of each cycle. */
+  cycleBeats: number;
+  /** Mix levels 0–1 per musical layer. */
+  mix: { pluck: number; lead: number; ensemble: number; gong: number; pad: number; bell: number };
+  ambience: { wind: number; birdsPerMinute: number; lakeShimmer: boolean };
+}
+
 export interface PortalDefinition {
   id: string;
   name: string;
@@ -118,6 +133,7 @@ export interface RegionDefinition {
     edge: { start: number; depth: number };
   };
   biome: BiomeDefinition;
+  audio: AudioTheme;
   spawn: { at: GeoPoint; heading: number };
   landmarks: readonly LandmarkDefinition[];
   collectibleLabel: string;

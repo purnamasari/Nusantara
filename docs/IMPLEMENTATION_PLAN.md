@@ -615,6 +615,9 @@ No measurement on the **reference machine** has been taken yet; D4 (which machin
 | 2026-10-04 | M1 | headless Chromium (SwiftShader) | `?bench=gen` scene build / first render / total | median 92.8 / 123.2 / 277.5 ms; total p95 394 ms | Not judged (non-reference) |
 | 2026-10-04 | M7 | headless Chromium (SwiftShader), 1280×720 | `?bench=frame` frame time | median 462.6 ms, p95 981.1 ms | Not judged: software rendering, not a GPU measurement |
 | 2026-10-04 | M7 | headless Chromium (SwiftShader) | JS heap during frame bench | 14 MB | Info |
+| 2026-10-04 | Audio | `vite build` (prod) | Initial JS, gzip -9, with the audio system | 237,945 B of 409,600 B | Yes |
+| 2026-10-04 | Audio | headless Chromium, `OfflineAudioContext` 44.1 kHz | 30 s walking mix: peak / RMS / per-second RMS range | 0.413 / −24.8 dBFS / −27 to −22 dBFS, no silent gaps | Info (no clipping) |
+| 2026-10-04 | Audio | headless Chromium, `OfflineAudioContext` 44.1 kHz | 20 s flying mix: peak / RMS | 0.353 / −22.2 dBFS | Info (no clipping) |
 
 ---
 
@@ -802,6 +805,24 @@ Landmarks are fictional (GDD §4.1). The geo anchors stay provisional until M9 r
 **Flora Spirits:** `bandung.flora.rose`, `.orchid`, `.jasmine`, `.lotus`, `.hibiscus`. Three are at the landmarks; two are in secluded spots (a crater rim and a southern valley).
 
 **Palette:** greens, pinks, purples, and soft blues; lavender-blue fog; a warm, low morning sun.
+
+### 12.8 Audio (added 2026-10-04, after M8)
+
+Built at the user's request. This fills GDD §5.5's audio feedback and the optional "simple ambient sound" in GDD §12.3.
+
+- **Data-driven.** `RegionDefinition.audio` holds the scale (cents), tonic, tempo, cycle length, layer mix and ambience levels, and the content validator checks it. Bandung: a salendro-style pentatonic `[0, 240, 480, 720, 960]` cents on G3 (196 Hz), 66 BPM, 16-beat cycles.
+- **Pure and tested** (`src/engine/audio/dsp.ts`, `composer.ts`, no Web Audio types):
+  - Karplus–Strong kacapi with a fractional delay, tuned within ±20 cents from 98 to 880 Hz (unit-tested).
+  - Angklung (rattled bamboo partials), gongs with inharmonic partials and a slow beating, noise, and a generated reverb impulse response.
+  - A seeded colotomic composer: gong per cycle, mid-cycle kempul, kacapi, suling phrases, angklung figures, bells after completion.
+- **Engine** (`audioEngine.ts`):
+  - Music, effects and ambience buses with reverb and a limiter.
+  - Lookahead scheduling on the audio clock.
+  - Instruments pre-rendered a few per tick so playback doesn't stutter.
+  - Ducking in menus.
+  - Wind, birds, lake chimes, the spirit hum, footsteps by surface, and effects for collect, restored, sealed, gate, takeoff, landing, jump and land.
+- **Budget impact:** initial JS rose from 229,789 B to 237,945 B gzipped. There are still 0 media files.
+- **Settings:** music and effects volume (0–100) live in `localStorage['otherworld.settings']`. This is a per-viewer convenience and not part of the save schema.
 
 ---
 
@@ -1155,6 +1176,7 @@ Risks handled within the plan, needing no input now:
 | 2026-10-04 | Greenhouse, its pad and the jasmine spirit moved onto the eastern hilltop: on the hillside the pad created a > 60° embankment, which R7 validation rejected | Implementation |
 | 2026-10-04 | Player physics substeps (≤ 50 ms per step, ≤ 5 steps per frame), so slow frames still simulate in real time | Implementation |
 | 2026-10-04 | Fog near/far grows with camera altitude so aerial views read the landscape; ground level keeps the mist | Implementation |
+| 2026-10-04 | Procedural audio added (user request): a Sundanese-inspired generative soundtrack, ambience and effects, data-driven per region; no audio files | User request |
 | — | D1, D4, D6 | Pending, user |
 
 ---
@@ -1176,7 +1198,9 @@ Risks handled within the plan, needing no input now:
 | M8 Full synthetic slice | Code complete; CI green on GitHub Actions. Open: manual playtest in Chrome and Firefox (only headless Chromium exists here) and the Pages URL (D5) | Start, loading and error screens; e2e for 404 and invalid metadata; CI run 2 green |
 | M9 Real Bandung elevation | Not started; gated on D1 | Bake tool exits with code 2 in real mode |
 
-**Test totals:** 105 unit tests (Vitest) and 12 browser tests (Playwright, headless Chromium), passing locally and on GitHub Actions.
+**Test totals:** 117 unit tests (Vitest) and 13 browser tests (Playwright, headless Chromium), including procedural-audio tests (tuning, composer structure, scheduling, ducking, volume persistence).
+
+**Audio:** generative Sundanese-inspired soundtrack, ambience and effects (§12.8). Nobody has listened to it yet; offline-rendered previews show no clipping and steady levels.
 
 **Still needs a person:**
 

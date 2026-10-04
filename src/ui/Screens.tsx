@@ -1,6 +1,27 @@
 import { ControlsCard } from './ControlsCard.tsx';
 import { useCommands, useUi } from './useStore.ts';
 
+/** Music and effects volume, persisted per browser. */
+export function SoundControls() {
+  const music = useUi((s) => s.musicVolume);
+  const sfx = useUi((s) => s.sfxVolume);
+  const { setVolume } = useCommands();
+  return (
+    <div className="sound" role="group" aria-label="Sound">
+      <label className="sound-row" htmlFor="vol-music">
+        <span>Music</span>
+        <input id="vol-music" type="range" min={0} max={100} step={1} value={music} onChange={(e) => setVolume('music', Number(e.target.value))} />
+        <output htmlFor="vol-music">{music}</output>
+      </label>
+      <label className="sound-row" htmlFor="vol-sfx">
+        <span>Effects</span>
+        <input id="vol-sfx" type="range" min={0} max={100} step={1} value={sfx} onChange={(e) => setVolume('sfx', Number(e.target.value))} />
+        <output htmlFor="vol-sfx">{sfx}</output>
+      </label>
+    </div>
+  );
+}
+
 export function StartScreen() {
   const hasSave = useUi((s) => s.hasSave);
   const { start } = useCommands();
@@ -17,10 +38,12 @@ export function StartScreen() {
         <button className="primary" onClick={start} autoFocus>
           {hasSave ? 'Continue' : 'Play'}
         </button>
+        <SoundControls />
         <ControlsCard />
         <p className="credits">
           Terrain in this build is a synthetic stand-in shaped like the Bandung basin; real elevation data is pending a
-          data-licence review. Landmarks are fictional.
+          data-licence review. Landmarks are fictional. Music and sound are generated live, inspired by Sundanese kacapi,
+          suling, angklung and gongs.
         </p>
       </div>
     </div>
@@ -66,12 +89,13 @@ export function ErrorScreen() {
 export function PauseOverlay() {
   const { resume } = useCommands();
   return (
-    <div className="overlay pause" onClick={resume} role="dialog" aria-label="Paused">
+    <div className="overlay pause" onClick={(e) => e.target === e.currentTarget && resume()} role="dialog" aria-label="Paused">
       <div className="panel compact">
         <h2>Paused</h2>
         <button className="primary" onClick={resume} autoFocus>
           Click to resume
         </button>
+        <SoundControls />
         <ControlsCard />
       </div>
     </div>

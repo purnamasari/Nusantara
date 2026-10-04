@@ -52,6 +52,9 @@ export interface UiState {
   error: { code: string; message: string; details: readonly string[] } | null;
   debug: DebugInfo | null;
   credits: string;
+  /** Volume, 0–100. */
+  musicVolume: number;
+  sfxVolume: number;
 }
 
 export const initialUiState: UiState = {
@@ -74,6 +77,8 @@ export const initialUiState: UiState = {
   error: null,
   debug: null,
   credits: '',
+  musicVolume: 70,
+  sfxVolume: 80,
 };
 
 /** Commands the UI may send to the engine. The UI never touches three.js. */
@@ -83,4 +88,5 @@ export interface GameCommands {
   closeMenu(): void;
   teleport(regionId: string): void;
   retry(): void;
+  setVolume(channel: 'music' | 'sfx', value: number): void;
 }

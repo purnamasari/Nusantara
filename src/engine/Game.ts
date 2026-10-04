@@ -18,14 +18,15 @@ import { generateRegion } from '../terrain/generate.ts';
 import type { GeneratedRegion } from '../terrain/generate.ts';
 import type { HeightmapMetadata } from '../heightmap/metadata.ts';
 import { Input } from './input.ts';
-import { createPlayer, isTransition, NO_INPUT, stepPlayer, TUNING } from './player/movement.ts';
+import { createPlayer, NO_INPUT, stepPlayer, TUNING } from './player/movement.ts';
 import type { MovementWorld, PlayerState } from './player/movement.ts';
 import { Avatar } from './player/avatar.ts';
 import { clampPitch, createCameraState, updateCamera } from './camera/cameraRig.ts';
 import { RegionScene } from './world/regionScene.ts';
 import { fetchRegionData } from './regionLoader.ts';
 import { ProgressManager, browserStorage } from './progressManager.ts';
-import { Sfx } from './audio/sfx.ts';
+import { AudioEngine } from './audio/audioEngine.ts';
+import type { AudioFrame, SurfaceKind } from './audio/audioEngine.ts';
 import { benchmarkPoses } from './poses.ts';
 import type { Pose } from './poses.ts';
 
@@ -52,6 +53,27 @@ export interface RenderInfo {
   geometries: number;
   textures: number;
   programs: number;
+}
+
+const SETTINGS_KEY = 'otherworld.settings';
+
+interface Settings {
+  music: number;
+  sfx: number;
+}
+
+/** Per-viewer convenience settings (volume); not part of the save schema. */
+function loadSettings(): Settings {
+  const fallback = { music: 70, sfx: 80 };
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return fallback;
+    const v = JSON.parse(raw) as Partial<Settings>;
+    const ok = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100;
+    return { music: ok(v.music) ? v.music! : fallback.music, sfx: ok(v.sfx) ? v.sfx! : fallback.sfx };
+  } catch {
+    return fallback;
+  }
 }
 
 const NOTICE_TEXT: Record<SaveNotice, string> = {
@@ -85,7 +107,7 @@ export class Game implements GameCommands {
   private readonly cam = createCameraState();
   private readonly avatar = new Avatar();
   private readonly progress: ProgressManager;
-  private readonly sfx = new Sfx();
+  private readonly audio = new AudioEngine();
   private toasts: Toast[] = [];
   private readonly toastExpiry = new Map<number, number>();
   private toastSeq = 0;
@@ -103,6 +125,7 @@ export class Game implements GameCommands {
   private spirits: SpiritSlot[] = [];
   private frameWaiters: (() => void)[] = [];
   private loadingRegion = false;
+  private settings: Settings = loadSettings();
   lastInfo: RenderInfo = { calls: 0, triangles: 0, geometries: 0, textures: 0, programs: 0 };
   /** Bound command object for the UI (safe to destructure). */
   readonly commands: GameCommands = {
@@ -111,6 +134,7 @@ export class Game implements GameCommands {
     closeMenu: () => this.closeMenu(),
     teleport: (id: string) => this.teleport(id),
     retry: () => this.retry(),
+    setVolume: (channel: 'music' | 'sfx', value: number) => this.setVolume(channel, value),
   };
 
   constructor(store: Store<UiState>, host: HTMLElement, baseUrl: string) {
@@ -135,11 +159,17 @@ export class Game implements GameCommands {
       this.resize();
       window.addEventListener('resize', () => this.resize());
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') this.saveNow();
+        if (document.visibilityState === 'hidden') {
+          this.saveNow();
+          this.audio.suspend();
+        } else if (this.region) {
+          this.audio.resume();
+        }
       });
       window.addEventListener('pagehide', () => this.saveNow());
       const hasSave = !this.progress.isNew && (this.progress.collected.size > 0 || this.progress.save.player !== null);
-      this.store.set({ screen: 'start', hasSave });
+      this.store.set({ screen: 'start', hasSave, musicVolume: this.settings.music, sfxVolume: this.settings.sfx });
+      this.audio.setVolumes({ music: this.settings.music / 100, sfx: this.settings.sfx / 100 });
       this.lastFrame = performance.now();
       this.renderer.setAnimationLoop((t) => this.frame(t));
     } catch (err) {
@@ -168,7 +198,8 @@ export class Game implements GameCommands {
   start(): void {
     const s = this.store.getSnapshot().screen;
     if (s !== 'start') return;
-    this.sfx.init();
+    this.audio.init();
+    this.audio.setVolumes({ music: this.settings.music / 100, sfx: this.settings.sfx / 100 });
     this.input?.requestLock();
     void this.loadRegion(this.progress.save.currentRegionId || START_REGION_ID).then(() => {
       const bench = new URLSearchParams(window.location.search).get('bench');
@@ -206,6 +237,18 @@ export class Game implements GameCommands {
 
   retry(): void {
     window.location.reload();
+  }
+
+  setVolume(channel: 'music' | 'sfx', value: number): void {
+    const v = Math.round(Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0)));
+    this.settings = { ...this.settings, [channel]: v };
+    this.audio.setVolumes({ music: this.settings.music / 100, sfx: this.settings.sfx / 100 });
+    this.store.set(channel === 'music' ? { musicVolume: v } : { sfxVolume: v });
+    try {
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings));
+    } catch {
+      // Volume still applies for this session.
+    }
   }
 
   private onLockChange(locked: boolean): void {
@@ -260,6 +303,7 @@ export class Game implements GameCommands {
     const complete = isComplete(def, this.progress.collected);
     scene.portal.setActive(complete, true);
     this.placePlayer(def, gen);
+    this.audio.setTheme(def.audio, def.seed);
     this.progress.visit(def.id);
     this.refreshProgressUi();
     this.store.set({ regionName: def.name, regionTitle: def.title, collectibleLabel: def.collectibleLabel });
@@ -325,13 +369,13 @@ export class Game implements GameCommands {
       if (!res.changed) return;
       this.progress.collect(target.id);
       r.scene.spirits.setCollected(this.progress.collected);
-      this.sfx.chime();
       const def = r.def.collectibles.find((c) => c.id === target.id)!;
       const { count, total } = regionProgress(r.def, this.progress.collected);
+      this.audio.collect(this.spiritDegree(r.def, target.id), count);
       this.toast(`${def.name} collected — ${count} / ${total}`, 'success');
       if (count === total) {
         r.scene.portal.setActive(true);
-        this.sfx.fanfare();
+        this.audio.restored();
         this.toast(`${r.def.name} restored — the ${r.def.portal.name} awakens!`, 'success');
       }
       this.refreshProgressUi();
@@ -341,15 +385,55 @@ export class Game implements GameCommands {
       this.openMenu();
     } else {
       const { count, total } = regionProgress(r.def, this.progress.collected);
-      this.sfx.sealed();
+      this.audio.sealed();
       this.toast(`The ${r.def.portal.name} is sealed — ${count} / ${total} ${r.def.collectibleLabel}`, 'info');
     }
   }
 
   private openMenu(): void {
     this.input?.exitLock();
+    this.audio.gateOpen();
     this.refreshProgressUi();
     this.store.set({ screen: 'menu' });
+  }
+
+  /** Each spirit sings one scale degree; collecting all five completes the scale. */
+  private spiritDegree(def: RegionDefinition, id: string): number {
+    const i = def.collectibles.findIndex((c) => c.id === id);
+    return Math.max(0, i) % def.audio.scaleCents.length;
+  }
+
+  private audioFrame(r: ActiveRegion, active: boolean): AudioFrame {
+    const p = this.player;
+    const ground = r.gen.surface.height(p.x, p.z);
+    let surface: SurfaceKind = 'grass';
+    if (r.gen.surface.onLake(p.x, p.z)) surface = 'crystal';
+    else if (r.gen.pads.some((pad) => (p.x - pad.x) ** 2 + (p.z - pad.z) ** 2 <= pad.radius * pad.radius)) surface = 'stone';
+    let spirit: AudioFrame['spirit'] = null;
+    let best = Infinity;
+    for (const c of r.gen.collectibles) {
+      if (this.progress.collected.has(c.id)) continue;
+      const d = (c.x - p.x) ** 2 + (c.z - p.z) ** 2;
+      if (d < best) {
+        best = d;
+        spirit = { x: c.x, z: c.z, degree: this.spiritDegree(r.def, c.id) };
+      }
+    }
+    const lake = r.gen.surface.lake;
+    return {
+      active,
+      flying: p.mode !== 'walk',
+      grounded: p.grounded,
+      altitude: Math.max(0, p.y - ground),
+      speed: p.mode === 'walk' ? Math.hypot(p.vx, p.vz) : p.speed,
+      surface,
+      x: p.x,
+      z: p.z,
+      yaw: this.look.yaw,
+      spirit,
+      lake: lake ? { x: lake.x, z: lake.z, radius: lake.radius } : null,
+      complete: isComplete(r.def, this.progress.collected),
+    };
   }
 
   private refreshProgressUi(): void {
@@ -416,6 +500,8 @@ export class Game implements GameCommands {
       }
       this.look.pitch = clampPitch(this.look.pitch, this.player.mode);
       const prevMode = this.player.mode;
+      const prevGrounded = this.player.grounded;
+      let minVy = 0;
       const move = playing
         ? {
             forward: (input.isDown('KeyW') ? 1 : 0) - (input.isDown('KeyS') ? 1 : 0),
@@ -434,9 +520,18 @@ export class Game implements GameCommands {
       // inputs (jump, mode toggle) apply on the first substep only.
       const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(dt / TUNING.maxDt)));
       for (let i = 0; i < substeps; i++) {
+        minVy = Math.min(minVy, this.player.vy);
         stepPlayer(this.player, i === 0 ? move : { ...move, jump: false, toggleMode: false }, r.world, dt / substeps);
       }
-      if (prevMode !== this.player.mode && isTransition(this.player.mode)) this.sfx.whoosh(this.player.mode === 'takeoff');
+      if (prevMode !== this.player.mode) {
+        if (this.player.mode === 'takeoff') this.audio.takeoff();
+        else if (this.player.mode === 'landing') this.audio.landing();
+      }
+      if (this.player.mode === 'walk' && prevMode === 'walk') {
+        if (prevGrounded && !this.player.grounded && this.player.vy > 0) this.audio.jump();
+        else if (!prevGrounded && this.player.grounded && minVy < -6) this.audio.land(-minVy / 20);
+      }
+      this.audio.update(this.audioFrame(r, playing), dt);
       if (playing && input.wasPressed('KeyE')) this.interact();
 
       if (this.poseOverride) {
@@ -697,6 +792,59 @@ export class Game implements GameCommands {
       },
       nextFrame: () => new Promise<void>((resolve) => this.frameWaiters.push(resolve)),
       saveNow: () => this.saveNow(),
+      audioState: () => this.audio.debugState(),
+      /** Renders `seconds` of the region's soundtrack offline and returns a 16-bit WAV (base64) plus levels. */
+      renderAudioPreview: async (seconds: number, flying = false) => {
+        const r = this.region;
+        if (!r) throw new Error('no region');
+        const rate = 44100;
+        const offline = new OfflineAudioContext(2, Math.floor(rate * seconds), rate);
+        const engine = new AudioEngine();
+        engine.init(offline);
+        engine.setVolumes({ music: this.settings.music / 100, sfx: this.settings.sfx / 100 });
+        engine.setTheme(r.def.audio, r.def.seed);
+        const spirit = r.gen.collectibles[1]!;
+        engine.update({
+          active: true, flying, grounded: !flying, altitude: flying ? 60 : 0, speed: flying ? 30 : 0, surface: 'grass',
+          x: spirit.x + 40, z: spirit.z + 30, yaw: 0, spirit: { x: spirit.x, z: spirit.z, degree: 1 }, lake: null, complete: false,
+        }, 0);
+        engine.scheduleUntil(seconds);
+        const buf = await offline.startRendering();
+        const l = buf.getChannelData(0);
+        const rr = buf.getChannelData(1);
+        let peak = 0;
+        let sum = 0;
+        const pcm = new Int16Array(l.length * 2);
+        for (let i = 0; i < l.length; i++) {
+          const a = l[i]!;
+          const b = rr[i]!;
+          peak = Math.max(peak, Math.abs(a), Math.abs(b));
+          sum += a * a + b * b;
+          pcm[i * 2] = Math.max(-1, Math.min(1, a)) * 32767;
+          pcm[i * 2 + 1] = Math.max(-1, Math.min(1, b)) * 32767;
+        }
+        const header = new DataView(new ArrayBuffer(44));
+        const str = (o: number, t: string) => [...t].forEach((ch, k) => header.setUint8(o + k, ch.charCodeAt(0)));
+        str(0, 'RIFF');
+        header.setUint32(4, 36 + pcm.byteLength, true);
+        str(8, 'WAVE');
+        str(12, 'fmt ');
+        header.setUint32(16, 16, true);
+        header.setUint16(20, 1, true);
+        header.setUint16(22, 2, true);
+        header.setUint32(24, rate, true);
+        header.setUint32(28, rate * 4, true);
+        header.setUint16(32, 4, true);
+        header.setUint16(34, 16, true);
+        str(36, 'data');
+        header.setUint32(40, pcm.byteLength, true);
+        const bytes = new Uint8Array(44 + pcm.byteLength);
+        bytes.set(new Uint8Array(header.buffer), 0);
+        bytes.set(new Uint8Array(pcm.buffer), 44);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return { wav: btoa(bin), peak, rmsDb: 10 * Math.log10(sum / (l.length * 2) + 1e-12), notes: engine.debugState().scheduledNotes };
+      },
       setLook: (yaw: number, pitch: number) => {
         this.look.yaw = wrapAngle(yaw);
         this.look.pitch = pitch;

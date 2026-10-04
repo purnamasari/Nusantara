@@ -101,6 +101,17 @@ export function validateRegionDefinition(def: RegionDefinition): ValidationIssue
     checkAnchor(issues, b, c.at, `collectibles[${i}].at`);
   });
 
+  const a = def.audio;
+  const cents = a.scaleCents;
+  if (cents.length < 3 || cents[0] !== 0 || cents.some((c, i) => i > 0 && !(c > cents[i - 1]!)) || cents[cents.length - 1]! >= 1200) {
+    add('audio.scaleCents', 'must start at 0, increase strictly and stay below 1200');
+  }
+  if (!(a.tonicHz >= 50 && a.tonicHz <= 1000)) add('audio.tonicHz', 'must be 50–1000 Hz');
+  if (!(a.tempoBpm >= 30 && a.tempoBpm <= 200)) add('audio.tempoBpm', 'must be 30–200 BPM');
+  if (!Number.isInteger(a.cycleBeats) || a.cycleBeats < 4 || a.cycleBeats % 2 !== 0) add('audio.cycleBeats', 'must be an even integer ≥ 4');
+  for (const [k, v] of Object.entries(a.mix)) if (!(v >= 0 && v <= 1)) add(`audio.mix.${k}`, 'must be 0–1');
+  if (!(a.ambience.wind >= 0 && a.ambience.wind <= 1) || !(a.ambience.birdsPerMinute >= 0)) add('audio.ambience', 'invalid ambience levels');
+
   const floraTotal = def.biome.flora.reduce((s, f) => s + f.cap, 0);
   if (floraTotal > MAX_FLORA_INSTANCES) add('biome.flora', `instance caps sum to ${floraTotal} (max ${MAX_FLORA_INSTANCES})`);
   def.biome.flora.forEach((f, i) => {

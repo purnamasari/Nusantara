@@ -30,7 +30,18 @@ npm run dev        # http://localhost:5173
 | Esc | Pause · close menus |
 | F3 or \` | Debug panel (FPS, draw calls, position, lat/lon) |
 
-Progress is saved in `localStorage` and survives reloads.
+Progress is saved in `localStorage` and survives reloads. Music and effects volume are on the start and pause screens.
+
+## Sound
+
+All audio is generated live with Web Audio. The game ships no audio files. Bandung's soundtrack is inspired by Sundanese music from West Java, on a salendro-style pentatonic of roughly equal 240-cent steps. It is a fantasy interpretation, not a transcription.
+
+- **Music** is generative and seeded. Each 16-beat cycle opens on a low gong, with a smaller gong mid-cycle. A kacapi (plucked zither, Karplus–Strong synthesis) rolls through bass and melody, a suling (bamboo flute) plays occasional phrases, angklung (shaken bamboo) answers near the cycle's end, and a soft pad drones underneath.
+- **The music follows play.** It thins out and brightens while flying, ducks behind menus, and adds angklung and bells once the valley is restored.
+- **Ambience:** wind rises with speed and altitude, birds call near the ground, and crystal chimes ring near Crystal Lake. Footsteps sound different on grass, stone pads and the crystal lake.
+- **Spirits sing.** The nearest uncollected Flora Spirit hums its own note of the scale, louder and panned toward it as you approach. The five spirits are the scale's five notes, so collecting them all completes it.
+
+The audio theme is part of each region's data (`src/content/regions/<id>.ts`, `audio`), so a new region can bring its own sound.
 
 ## Scripts
 

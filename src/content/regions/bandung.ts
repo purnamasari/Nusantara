@@ -75,6 +75,18 @@ export const bandung: RegionDefinition = {
       },
     ],
   },
+  // Inspired by Sundanese music of West Java: kacapi (zither), suling (bamboo flute), angklung
+  // and degung-style gongs, on a salendro-style pentatonic of roughly equal 240-cent steps.
+  // A fantasy interpretation, not a transcription of any tradition.
+  audio: {
+    style: 'Sundanese-inspired: kacapi, suling, angklung and gongs on a salendro-style pentatonic',
+    scaleCents: [0, 240, 480, 720, 960],
+    tonicHz: 196,
+    tempoBpm: 66,
+    cycleBeats: 16,
+    mix: { pluck: 0.55, lead: 0.42, ensemble: 0.5, gong: 0.6, pad: 0.16, bell: 0.3 },
+    ambience: { wind: 0.5, birdsPerMinute: 14, lakeShimmer: true },
+  },
   spawn: { at: geo(-6.941875, 107.6115), heading: 0 },
   landmarks: [
     {
