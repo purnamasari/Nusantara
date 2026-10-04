@@ -1056,7 +1056,7 @@ Every box must be ticked before the next milestone starts. Items marked *(manual
 ### M8: Synthetic vertical slice complete
 - [ ] GDD §16 criteria 1–9 all pass on synthetic terrain, criterion 10 passes if hosting is decided, and each is ticked with evidence (§17.2).
 - [x] The start, loading, and error screens work. The e2e run covers the `HEIGHTMAP_FETCH_FAILED` path by forcing a 404.
-- [ ] All CI checks are green, and every budget is within limits on the production build. (Green locally, including budgets. The GitHub Actions run is checked after push; see §20.)
+- [x] All CI checks are green, and every budget is within limits on the production build. (GitHub Actions run 2, https://github.com/purnamasari/Nusantara/actions/runs/37201416183, passed typecheck, unit tests, build, budgets and e2e. Run 1 failed only because the e2e preview server did not answer at 127.0.0.1; it is now bound explicitly.)
 - [ ] *(manual)* A full playtest, from start to an active portal, in latest Chrome and Firefox. Edge and Safari are best-effort and their results are recorded.
 
 ### M9: Real Bandung elevation
@@ -1173,10 +1173,10 @@ Risks handled within the plan, needing no input now:
 | M5 Collectibles, portal, HUD | Done | Unit rules and e2e full loop including the Teleport menu |
 | M6 Persistence | Done | Unit save tests, e2e reload, corrupt-save e2e |
 | M7 Vegetation and atmosphere | Done, except the reference-machine frame benchmark | Pose counts, leak check, materials ≤ 20, Chromium = Node hash |
-| M8 Full synthetic slice | Code complete. Open: manual playtest in Chrome and Firefox (only headless Chromium exists here), GitHub Actions run, Pages URL (D5) | Start, loading and error screens; e2e for 404 and invalid metadata |
+| M8 Full synthetic slice | Code complete; CI green on GitHub Actions. Open: manual playtest in Chrome and Firefox (only headless Chromium exists here) and the Pages URL (D5) | Start, loading and error screens; e2e for 404 and invalid metadata; CI run 2 green |
 | M9 Real Bandung elevation | Not started; gated on D1 | Bake tool exits with code 2 in real mode |
 
-**Test totals:** 105 unit tests (Vitest) and 12 browser tests (Playwright, headless Chromium), all passing locally.
+**Test totals:** 105 unit tests (Vitest) and 12 browser tests (Playwright, headless Chromium), passing locally and on GitHub Actions.
 
 **Still needs a person:**
 
